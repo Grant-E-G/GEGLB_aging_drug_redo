@@ -1,45 +1,62 @@
-# Research Plan: Project Name
+# Research Plan
 
 ## 1. Core Question
 
-What mathematical question is this project trying to answer?
+Can we reproduce SHARP and then replace fragile parts of the pipeline with more
+statistically defensible alternatives while preserving interpretability?
 
-## 2. Thesis
+## 2. Baseline Thesis
 
-What is the main claim, expected theorem, or conceptual contribution?
+The original SHARP pipeline should be treated as a clean baseline:
 
-## 3. Mathematical Setting
+- network proximity identifies drugs whose targets are close to aging hallmark
+  modules;
+- pAGE asks whether drug-induced expression opposes age-associated expression;
+- the combined score produces interpretable drug-hallmark hypotheses.
 
-Specify the objects, assumptions, categories, spaces, equations, or structures involved.
+## 3. First Deliverable
 
-## 4. Definitions Needed
+A documented reproduction audit:
 
-List definitions that must be made precise before the main result can be stated.
+- exact upstream commits and source files;
+- local data manifest with checksums;
+- runnable Python loader/scoring scaffolds;
+- clear list of blocked data pulls;
+- first-pass comparison against the paper's headline counts.
 
-## 5. Candidate Theorems
+## 4. Data Objects
 
-State theorem targets, even if provisional.
+- hallmark gene memberships from `Gene_hallmarks.csv`;
+- age-related expression directions from `age-related-changes.tsv`;
+- interactome edges from `PPI_2022.csv`;
+- validation network from `PPI_STRING.csv.zip`;
+- CMap metadata from `CMap_data/*`;
+- published proximity/pAGE result tables from `results/*.csv`;
+- later: full CMap Level 5 matrix or a documented subset.
 
-## 6. Proof Strategy
+## 5. Baseline Implementation
 
-Describe the intended proof route, major lemmas, reductions, and technical bottlenecks.
+Implement in this order:
 
-## 7. Examples and Non-Examples
+1. data loaders;
+2. pAGE scorer;
+3. proximity oracle;
+4. optimized proximity implementation validated against the oracle;
+5. reproduction summary tables.
 
-Track examples, counterexamples, sanity checks, and edge cases.
+## 6. Risks And Unknowns
 
-## 8. Related Literature
+- DrugBank-derived files require license review.
+- CMap files may require account access and may exceed the 10 GB local pull cap.
+- OpenGenes-derived processed files need a pinned upstream date if replaced with
+  fresh downloads.
+- Validation labels are small and may overlap with source literature used to
+  build OpenGenes.
 
-Record papers, books, and adjacent results.
+## 7. Near-Term Checks
 
-## 9. Risks and Unknowns
-
-Name weak points, missing hypotheses, unclear definitions, and possible failure modes.
-
-## 10. Paper Structure
-
-Sketch the eventual manuscript organization.
-
-## 11. Optional Computation
-
-List any symbolic checks, toy examples, numerical probes, or figure-generation tasks.
+- [ ] Run `python scripts/download_data.py` from a clean checkout.
+- [ ] Run `pytest`.
+- [ ] Count hallmark genes by confidence level.
+- [ ] Count age-direction genes and inspect duplicate/conflicting directions.
+- [ ] Confirm pAGE sign convention against the author notebook.

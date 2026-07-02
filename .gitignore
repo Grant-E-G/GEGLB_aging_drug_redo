@@ -5,6 +5,16 @@ latex/render/*
 sources/pdfs/*
 !sources/pdfs/README.md
 
+# Local datasets and upstream clones
+data/raw/*
+!data/raw/README.md
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+sources/upstream/*
+!sources/upstream/README.md
+
 # TeX build products
 *.aux
 *.bbl

@@ -1,0 +1,29 @@
+[project]
+name = "geglb-aging-drug-redo"
+version = "0.1.0"
+description = "Reproduction and stress test of SHARP aging drug-repurposing pipeline."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+analysis = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "statsmodels",
+    "networkx",
+    "tqdm",
+]
+dev = [
+    "black",
+    "pytest",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
