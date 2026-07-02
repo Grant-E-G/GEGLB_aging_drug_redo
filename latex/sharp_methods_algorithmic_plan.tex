@@ -1,0 +1,220 @@
+\documentclass[11pt]{article}
+
+\input{macros}
+
+\title{SHARP Reproduction: Methods and Local-Compute Algorithmic Plan}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note summarizes the SHARP reproduction target \cite{gross2025sharp} and
+the algorithmic changes needed to make the computation practical on a local
+workstation. The goal is not to change the scientific claim during
+reproduction, but to reproduce the published network-proximity and pAGE
+computations, then replace the slow parts with provably equivalent
+implementations. The main point is that rented cloud compute should not be
+necessary: the expensive step is mostly repeated drug-independent work inside a
+permutation null, and that work can be shared, vectorized, and checked against a
+naive oracle.
+\end{abstract}
+
+\section{Objects and Data}
+
+Let \(G=(V,E)\) be the undirected human protein interaction graph, with shortest
+path distance \(d(u,v)\). Vertices are genes or proteins after identifier
+harmonization. For each aging hallmark \(h\), let \(M_h \subset V\) be its
+OpenGenes-derived hallmark module, possibly filtered by confidence threshold
+\(\ell \in \{1,\ldots,5\}\). For each drug \(a\), let \(T_a \subset V\) be the
+set of its mapped protein targets. Let \(A_g \in \{-1,0,1\}\) denote the
+age-associated direction for gene \(g\), with \(+1\) meaning increased with age
+and \(-1\) meaning decreased with age. Let \(D_{a,g} \in \{-1,0,1\}\) denote
+the drug-induced expression direction from CMap/LINCS.
+
+The local reproduction inputs are the processed interactome, hallmark
+memberships, age-direction table, DrugBank-derived target mappings, CMap
+metadata, published proximity/pAGE result tables, and the Level 5 CMap GCTX
+matrix. Before recomputing pAGE from the GCTX, require a file-size gate:
+\[
+  \operatorname{size}(\texttt{level5\_beta\_trt\_cp\_n720216x12328.gctx})
+  = 35{,}518{,}405{,}386 \text{ bytes}.
+\]
+The current local file must be treated as incomplete until this equality holds.
+
+\section{Baseline SHARP Method}
+
+\paragraph{Hallmark modules.}
+Each hallmark is represented by the induced subgraph on \(M_h\). The
+connectivity check asks whether the largest connected component of \(M_h\) is
+larger than expected under degree-matched random gene sets of the same size.
+This establishes that each hallmark is not merely a list of genes, but a
+network-localized module. The reproduction must preserve the authors'
+confidence-level and de-duplication rules, because headline counts depend on
+them.
+
+\paragraph{Network proximity.}
+SHARP uses a Guney-style closest-distance score between drug targets \(T_a\)
+and a hallmark module \(M_h\):
+\[
+  c_{M_h}(t) = \min_{m \in M_h} d(t,m),
+  \qquad
+  \delta(a,h) = \frac{1}{|T_a|}\sum_{t \in T_a} c_{M_h}(t).
+\]
+Smaller \(\delta(a,h)\) means the drug targets lie closer to the hallmark
+module. Statistical significance is computed from a degree-matched permutation
+null. If \(\delta^{(1)},\ldots,\delta^{(R)}\) are null proximities, then
+\[
+  z(a,h)=
+  \frac{\delta(a,h)-\widehat{\mu}_{a,h}}{\widehat{\sigma}_{a,h}},
+  \qquad
+  \widehat{\mu}_{a,h}=\frac{1}{R}\sum_{r=1}^R \delta^{(r)}, \quad
+  \widehat{\sigma}_{a,h}^2=\frac{1}{R-1}\sum_{r=1}^R
+  \bigl(\delta^{(r)}-\widehat{\mu}_{a,h}\bigr)^2.
+\]
+The published significance rule is \(z<-1.96\), with marginal calls sometimes
+reported separately. The key unresolved reproduction detail is whether the null
+randomizes only the drug target set, or both \(T_a\) and \(M_h\). This must be
+verified from the author code before full-scale execution.
+
+\paragraph{Expression directionality: pAGE.}
+pAGE is a signed concordance score between age-associated expression and
+drug-induced expression:
+\[
+  \operatorname{pAGE}(a;H)
+  = -\sum_{g \in H} A_g D_{a,g}.
+\]
+Here \(H\) is the chosen gene universe, typically the genes with usable age and
+CMap directions. The leading minus sign makes reversal positive: if a gene
+increases with age but the drug decreases it, then \(A_gD_{a,g}=-1\), which
+contributes \(+1\). Thus \(\operatorname{pAGE}>0\) is pro-longevity by the
+paper's convention, while \(\operatorname{pAGE}<0\) is age-accelerating.
+
+\paragraph{Combined candidate rule.}
+The baseline candidate screen is conceptually two-stage. First, a drug must be
+network-proximal to at least one hallmark module under the proximity null.
+Second, among drugs with CMap coverage, pAGE must be positive. The reproduction
+should report counts at each filtering step: genes, modules, drugs, proximal
+drug--hallmark pairs, CMap-covered proximal drugs, and pAGE-positive candidates.
+
+\section{Why the Naive Computation Is Slow}
+
+The observed proximity scores are cheap. The expensive part is the permutation
+null: for each drug, hallmark, confidence level, and randomization, the naive
+implementation repeatedly evaluates
+\(\min_{m\in M_h} d(t,m)\) in Python-level loops. If \(N_d\) drugs,
+\(N_h\) hallmark/level combinations, and \(R\approx 10^3\) permutations are
+used, this produces on the order of \(N_dN_hR\) proximity evaluations. The
+problem is not that shortest paths are intrinsically too expensive; it is that
+the same module-distance information is recomputed or re-read in the wrong
+place.
+
+\section{Recommended Local-Compute Algorithm}
+
+\paragraph{Correctness anchor.}
+First implement the naive permutation method on a small deterministic subset.
+This oracle should use the same random seed, degree bins, confidence filters,
+and missing-gene rules as the authors. All optimized implementations must agree
+with the oracle to numerical tolerance, for example
+\[
+  |z_{\mathrm{fast}}(a,h)-z_{\mathrm{oracle}}(a,h)| < 10^{-9}
+\]
+on the held-out subset. Reproduction fidelity comes before speed.
+
+\paragraph{Multi-source BFS.}
+For a fixed module \(M_h\), compute the whole vector
+\[
+  c_{M_h} = \bigl(c_{M_h}(v)\bigr)_{v\in V}
+\]
+with one multi-source breadth-first search seeded at all nodes in \(M_h\). Then
+each drug proximity is only a gather-and-mean:
+\[
+  \delta(a,h) = \operatorname{mean}\{c_{M_h}(t):t\in T_a\}.
+\]
+This removes the graph traversal and the module minimum from the inner drug
+loop.
+
+\paragraph{Share the null.}
+If the null randomizes hallmark modules, precompute \(R\) module-distance
+vectors for each hallmark/level/network combination and store them as an
+\(R\times |V|\) integer array. Most interactome distances are small, so
+\texttt{int8} or \texttt{int16} is usually sufficient after reserving one value
+for unreachable nodes. For every drug, the null distribution is obtained by
+gathering the target columns from this matrix and taking row means. If the null
+randomizes drug targets only, the savings are even larger: the observed module
+distance vector is reused, and random target draws become a vectorized indexed
+mean over \(c_{M_h}\).
+
+\paragraph{Avoid all-pairs distances.}
+Do not load or regenerate a dense all-pairs distance pickle unless an explicit
+storage estimate justifies it. A full \(n\times n\) distance matrix is the wrong
+object for this task. The needed object is a small family of one-to-all
+distance vectors \(c_{M_h}\), plus the corresponding random-module vectors if
+the null requires them.
+
+\paragraph{Stream CMap, do not materialize more than needed.}
+For pAGE, the Level 5 GCTX is large but not algorithmically hard. Once the file
+is complete, read only the signatures and genes needed for the reproduction,
+map them through \texttt{siginfo\_beta.txt} and \texttt{geneinfo\_beta.txt},
+and compute \(D_{a,g}\) or continuous drug effects in chunks. The expression
+step should be I/O-bound and memory-bounded, not a cloud-scale computation.
+
+\section{Methodological Improvements After Reproduction}
+
+\paragraph{Effect-size-aware reversal.}
+pAGE discards effect size and uncertainty. After exact reproduction, replace it
+with a continuous reversal score
+\[
+  S(a,h,c) =
+  -\sum_{g\in H_h} w_g\,\beta_{\mathrm{age}}(g,c)\,
+  \beta_{\mathrm{drug}}(a,g,c),
+\]
+where \(c\) denotes biological context, such as tissue, cell line, dose, or
+time. The sign convention matches pAGE: larger is more age-reversing. This
+upgrade is only half available immediately. CMap supplies continuous drug-side
+effects, but the current OpenGenes age-side input is categorical, so a fully
+continuous \(\beta_{\mathrm{age}}\) requires a quantitative aging expression
+resource.
+
+\paragraph{Context sensitivity.}
+Do not collapse dose, exposure time, and cell line prematurely. At minimum,
+report robustness across CMap contexts. A simple model is
+\[
+  \beta_{\mathrm{drug}}(a,g,c)
+  = \alpha_{a,g}+\gamma_{\mathrm{cell}(c),g}
+    + \eta_{\mathrm{dose}(c),g}+\tau_{\mathrm{time}(c),g}
+    + \varepsilon_{a,g,c},
+\]
+or a robust nonparametric aggregation if sample sizes are too thin for a mixed
+model. Candidate drugs whose sign changes across contexts should be marked
+fragile.
+
+\paragraph{Better validation.}
+Validation should include ablations: proximity only, pAGE only, target degree,
+target overlap, shuffled age signatures, shuffled drug targets, and
+degree-preserving network controls. Because there is no clean negative set for
+``does not affect longevity,'' precision estimates must be interpreted
+cautiously. Decoy and permutation nulls are safer than pretending unknown drugs
+are true negatives.
+
+\section{Feasibility Claim}
+
+The reproduction should not require AWS if three conditions hold:
+\begin{enumerate}[leftmargin=*]
+  \item the Level 5 GCTX download is complete and verified by byte size or
+  checksum;
+  \item the proximity implementation is validated against a naive oracle before
+  full-scale execution;
+  \item the full run uses module-distance vectors and vectorized null
+  evaluation rather than Python loops or dense all-pairs distance matrices.
+\end{enumerate}
+Under these conditions, proximity should move from a weeks-scale script to a
+hours-scale local job, and pAGE should be a streaming matrix-processing task.
+The remaining hard problems are methodological validation and data
+harmonization, not raw compute rental.
+
+\bibliographystyle{alpha}
+\bibliography{references}
+
+\end{document}
