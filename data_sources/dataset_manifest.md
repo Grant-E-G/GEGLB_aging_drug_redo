@@ -22,8 +22,11 @@ These files are present under `data/raw/longevity_module/` but ignored by git.
 | `PPI_STRING.csv.zip` | 11,744,284 | `003aa9cca0d05df114b774e2c3907389861345d41a36e047514c005066e311f2` | STRING validation network from author repo. |
 | `CMap_data/geneinfo_beta.txt` | 1,141,389 | `e739d06bad42ff9285c00b778e65d8999425062a3375cc7e7cdab0e7154490b5` | CMap LINCS 2020 gene metadata copied from author repo. |
 | `CMap_data/compoundinfo_beta.txt` | 4,631,014 | `a71fca6de41dcc46a5063858be7e04155f3c09832c8b3fb35814f03db8d9fdff` | CMap LINCS 2020 compound metadata copied from author repo. |
+| `CMap_data/siginfo_beta.txt` | 465,242,319 | `1a38d7ea2a804be79804af4a27aff9f2537af8f13d3c8af1fdc1fef780f40201` | CMap LINCS 2020 Level 5 signature metadata from public CMap S3. |
 | `CMap_data/LINCS2020_Release_Metadata_Field_Definitions.xlsx` | 40,461 | `15ab6e651de14334e632d90e140ba3060f157d94681e4e8b8c0f7db353e7115e` | CMap metadata definitions copied from author repo. |
 | `CMap_data/README.txt` | 2,200 | `d6e9bbb485950550999f0c882bf9a5640ccb3028896219a4c8bd1849649b41d1` | CMap release notes copied from author repo. |
+| `all_drugbank_drugs.csv.zip` | 5,955,750 | `e760c43ea3d38226d18be057bdf3e79e2e683c85d2f397e606fa16be1a88a18d` | DrugBank-derived target mappings from author repo, pulled for local academic work only. |
+| `all_drugbank_drugs.csv` | 44,642,727 | `7f748f45aebdfa8c593719e1c61c450e66b70c3b3e443b3dd51440d97ec380a6` | Extracted DrugBank-derived target mappings. |
 | `results/*.csv` | 11,393,415 total | see below | Published proximity and pAGE result tables copied from author repo. |
 
 Additional local source:
@@ -53,7 +56,13 @@ Result table checksums:
 
 | Dataset | Reason |
 |---|---|
-| `all_drugbank_drugs.csv.zip` | Small in the author repo, but DrugBank-derived. License review is required before copying into this workspace or redistributing. |
-| `level5_beta_trt_cp_n720216x12328.gctx` | Not hosted in GitHub. CLUE/CMap access terms apply, and the author README calls it very big. Do not pull if over 10 GB. |
-| `siginfo_beta.txt` | Not hosted in GitHub. CLUE/CMap access terms apply, and the author README calls it very big. Check size/access before pulling. |
+| `level5_beta_trt_cp_n720216x12328.gctx` | Public CMap S3 HEAD reports `Content-Length: 35518405386` bytes (~33.1 GiB), over the 10 GB pull cap. |
 | `PPI_2022_distances.pkl` | Not hosted in GitHub. Author README says it is very big. Prefer regenerating or replacing with module-level BFS vectors. |
+
+## Checked Remote Sizes
+
+| Dataset | URL | Size | Decision |
+|---|---|---:|---|
+| `level5_beta_trt_cp_n720216x12328.gctx` | `https://s3.amazonaws.com/macchiato.clue.io/builds/LINCS2020/level5/level5_beta_trt_cp_n720216x12328.gctx` | 35,518,405,386 bytes (~33.1 GiB) | Do not pull under 10 GB rule. |
+| `siginfo_beta.txt` | `https://s3.amazonaws.com/macchiato.clue.io/builds/LINCS2020/siginfo_beta.txt` | 465,242,319 bytes (~443.7 MiB) | Pulled. |
+| `instinfo_beta.txt` | `https://s3.amazonaws.com/macchiato.clue.io/builds/LINCS2020/instinfo_beta.txt` | 674,838,120 bytes (~643.6 MiB) | Optional; not required for pAGE Level 5 reproduction yet. |

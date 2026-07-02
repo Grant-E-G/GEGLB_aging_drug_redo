@@ -66,15 +66,17 @@ Pulled locally but ignored by git:
 - `data/raw/longevity_module/PPI_STRING.csv.zip`.
 - `data/raw/longevity_module/CMap_data/geneinfo_beta.txt`.
 - `data/raw/longevity_module/CMap_data/compoundinfo_beta.txt`.
+- `data/raw/longevity_module/CMap_data/siginfo_beta.txt`.
 - `data/raw/longevity_module/CMap_data/LINCS2020_Release_Metadata_Field_Definitions.xlsx`.
+- `data/raw/longevity_module/all_drugbank_drugs.csv.zip`.
+- `data/raw/longevity_module/all_drugbank_drugs.csv`.
 - `data/raw/longevity_module/results/*.csv`, published proximity and pAGE result
   tables from the author repository.
 
 Not pulled yet:
 
-- DrugBank-derived target mapping, pending license review.
-- CMap Level 5 compound matrix, pending size/access check and likely too large
-  for this repository workflow.
+- CMap Level 5 compound matrix. The public S3 HEAD reports 35,518,405,386 bytes
+  (~33.1 GiB), so it is over the 10 GB pull cap.
 - `PPI_2022_distances.pkl`, generated artifact described by the authors as too
   large for GitHub.
 

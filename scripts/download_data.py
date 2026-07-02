@@ -1,9 +1,14 @@
-"""Download small, license-compatible source files for the SHARP reproduction."""
+"""Download local source files for the SHARP reproduction.
+
+The downloaded data lives under ignored paths. Files over 10 GB are reported and
+not downloaded.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import sys
+import zipfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -13,6 +18,9 @@ from urllib.request import Request, urlopen
 MAX_BYTES = 10 * 1024**3
 ROOT = Path(__file__).resolve().parents[1]
 LONVER = "69ff9e6f8c455b25e9947649cffe28dd77f358ae"
+CMAP_ROOT = "https://s3.amazonaws.com/macchiato.clue.io/builds/LINCS2020"
+GCTX_URL = f"{CMAP_ROOT}/level5/level5_beta_trt_cp_n720216x12328.gctx"
+SIGINFO_URL = f"{CMAP_ROOT}/siginfo_beta.txt"
 
 
 def raw_url(path: str) -> str:
@@ -62,6 +70,16 @@ DOWNLOADS = [
         raw_url("CMap_data/LINCS2020 Release Metadata Field Definitions.xlsx"),
         "data/raw/longevity_module/CMap_data/LINCS2020_Release_Metadata_Field_Definitions.xlsx",
     ),
+    (
+        "cmap_siginfo",
+        SIGINFO_URL,
+        "data/raw/longevity_module/CMap_data/siginfo_beta.txt",
+    ),
+    (
+        "drugbank_targets_zip",
+        raw_url("data/all_drugbank_drugs.csv.zip"),
+        "data/raw/longevity_module/all_drugbank_drugs.csv.zip",
+    ),
 ]
 
 RESULT_FILES = [
@@ -81,16 +99,8 @@ RESULT_FILES = [
 
 SKIPPED = [
     (
-        "all_drugbank_drugs.csv.zip",
-        "DrugBank-derived file; requires license review before copying or redistribution.",
-    ),
-    (
         "level5_beta_trt_cp_n720216x12328.gctx",
-        "CMap/CLUE matrix; check access terms and size. Do not pull if over 10 GB.",
-    ),
-    (
-        "siginfo_beta.txt",
-        "CMap/CLUE signature metadata; check access terms and size before pulling.",
+        "CMap/CLUE matrix is 35,518,405,386 bytes, over the 10 GB cap.",
     ),
     (
         "PPI_2022_distances.pkl",
@@ -123,19 +133,39 @@ def sha256(path: Path) -> str:
 def download_one(name: str, url: str, relative_path: str) -> tuple[str, Path, int, str]:
     destination = ROOT / relative_path
     destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_suffix(destination.suffix + ".part")
 
     size = remote_size(url)
     if size is not None and size > MAX_BYTES:
         raise RuntimeError(f"{name} is {size} bytes, over the 10 GB cap")
 
+    total = 0
     with urlopen(request(url), timeout=120) as response:
-        data = response.read()
+        with partial.open("wb") as handle:
+            for block in iter(lambda: response.read(1024 * 1024), b""):
+                total += len(block)
+                if total > MAX_BYTES:
+                    partial.unlink(missing_ok=True)
+                    raise RuntimeError(f"{name} downloaded over the 10 GB cap")
+                handle.write(block)
 
-    if len(data) > MAX_BYTES:
-        raise RuntimeError(f"{name} downloaded over the 10 GB cap")
+    partial.replace(destination)
+    return name, destination, total, sha256(destination)
 
-    destination.write_bytes(data)
-    return name, destination, len(data), sha256(destination)
+
+def extract_drugbank_targets() -> None:
+    zip_path = ROOT / "data/raw/longevity_module/all_drugbank_drugs.csv.zip"
+    if not zip_path.exists():
+        return
+
+    with zipfile.ZipFile(zip_path) as archive:
+        for member in archive.namelist():
+            if member.startswith("__MACOSX/") or member.endswith("/"):
+                continue
+            if Path(member).name != "all_drugbank_drugs.csv":
+                continue
+            destination = zip_path.parent / "all_drugbank_drugs.csv"
+            destination.write_bytes(archive.read(member))
 
 
 def all_downloads() -> list[tuple[str, str, str]]:
@@ -158,6 +188,8 @@ def main() -> int:
 
     for name, reason in SKIPPED:
         print(f"skipped {name}\t{reason}", file=sys.stderr)
+
+    extract_drugbank_targets()
 
     return 0
 

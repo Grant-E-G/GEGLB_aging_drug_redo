@@ -42,10 +42,11 @@ datasets.
 - The current repository did not have the project structure proposed in the
   outline; initial `data/`, `docs/`, `scripts/`, `src/`, `tests/`, `notebooks/`,
   and `results/` directories are now present.
-- The full CMap matrix and signature metadata are not currently reproducible
-  from this workspace without a CLUE/CMap access and size check.
-- DrugBank-derived targets should not be copied or committed until license terms
-  are reviewed.
+- The full CMap expression matrix is not currently pulled because it would
+  require either lifting the 10 GB pull cap or using a subset strategy. The GCTX
+  is 35,518,405,386 bytes (~33.1 GiB).
+- DrugBank-derived targets are now pulled locally for academic work but remain
+  ignored by git.
 - The most important unresolved methodological question is still the proximity
   null: whether the authors randomize only drug targets, or both drug targets and
   hallmark modules.
